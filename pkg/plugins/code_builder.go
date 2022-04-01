@@ -49,7 +49,7 @@ type CodeBuilderPlugin struct {
 }
 
 type CodeBuilderPluginResult struct {
-	ImageUrl []string
+	ImageUrl []string `json:"images"`
 }
 
 func NewCodeBuilderPlugin(ser *serializers.BuildCodeToImageSerializer) (*CodeBuilderPlugin, error) {
@@ -107,7 +107,7 @@ func (b *CodeBuilderPlugin) clone() error {
 		}
 	}
 	r, err := git.PlainClone(b.CodeDir, false, &git.CloneOptions{
-		Auth: auth,
+		Auth:     auth,
 		URL:      b.Params.CodeUrl,
 		Progress: b.Logger,
 	})
@@ -139,7 +139,8 @@ func (b *CodeBuilderPlugin) loginDocker(user string, password string, server str
 }
 
 func (b *CodeBuilderPlugin) buildCode() error {
-	if b.Params.CodeBuildType == CodeBuildTypeNone {
+	if b.Params.CodeBuildType == CodeBuildTypeNone || !b.Params.CodeBuild {
+		b.Log("跳过代码构建")
 		return nil
 	}
 	codeBuildFile := ""
@@ -179,7 +180,7 @@ func (b *CodeBuilderPlugin) buildCode() error {
 		shExec = "bash"
 	}
 
-	dockerRunCmd := fmt.Sprintf("docker run --rm -i -v %s:/app -w /app --entrypoint sh %s -c \"%s -ex /app/%s 2>&1\"", b.CodeDir, b.Params.CodeBuildImage, shExec, codeBuildFile)
+	dockerRunCmd := fmt.Sprintf("docker run --rm -i -v %s:/app -w /app --entrypoint sh %s -c \"%s -ex /app/%s 2>&1\"", b.CodeDir, b.Params.CodeBuildImage.Value, shExec, codeBuildFile)
 	klog.Infof("job=%d code build cmd: %s", b.JobId, dockerRunCmd)
 	cmd := exec.Command("bash", "-xc", dockerRunCmd)
 	cmd.Stdout = b.Logger
@@ -192,10 +193,10 @@ func (b *CodeBuilderPlugin) buildCode() error {
 }
 
 func (b *CodeBuilderPlugin) buildImages() error {
-	for _, buildImageInfo := range b.Params.ImageBuildInfos {
-		imageName := buildImageInfo.ImageName
-		imageName = b.Params.ImageBuildServer + "/" + imageName
-		if err := b.buildAndPushImage(buildImageInfo.DockerfilePath, imageName); err != nil {
+	for _, buildImage := range b.Params.ImageBuilds {
+		imageName := buildImage.Image
+		imageName = b.Params.ImageBuildRegistry.Registry + "/" + imageName
+		if err := b.buildAndPushImage(buildImage.Dockerfile, imageName); err != nil {
 			return err
 		}
 	}
@@ -221,9 +222,10 @@ func (b *CodeBuilderPlugin) buildAndPushImage(dockerfilePath string, imageName s
 }
 
 func (b *CodeBuilderPlugin) pushImage(imageUrl string) error {
-	if b.Params.ImageBuildAuthPwd != "" && b.Params.CodeBuildImageAuthPwd != "" {
-		if err := b.loginDocker(b.Params.ImageBuildAuthUser, b.Params.ImageBuildAuthPwd, b.Params.ImageBuildServer); err != nil {
-			klog.Errorf("docker login %s error: %v", b.Params.ImageBuildServer, err)
+	if b.Params.ImageBuildRegistry.User != "" && b.Params.ImageBuildRegistry.Password != "" {
+		if err := b.loginDocker(b.Params.ImageBuildRegistry.User, b.Params.ImageBuildRegistry.Password, b.Params.ImageBuildRegistry.Registry); err != nil {
+			b.Log("docker login %s error: %v", b.Params.ImageBuildRegistry.Registry, err)
+			klog.Errorf("docker login %s error: %v", b.Params.ImageBuildRegistry.Registry, err)
 		}
 	}
 	pushCmd := fmt.Sprintf("docker push %s", imageUrl)
@@ -231,7 +233,7 @@ func (b *CodeBuilderPlugin) pushImage(imageUrl string) error {
 	cmd.Stdout = b.Logger
 	cmd.Stderr = b.Logger
 	if err := cmd.Run(); err != nil {
-		b.Log("推送镜像%s错误：%v", imageUrl, err)
+		b.Log("docker push %s：%v", imageUrl, err)
 		klog.Errorf("push image error: %v", err)
 		return fmt.Errorf("推送镜像%s错误：%v", imageUrl, err)
 	}
