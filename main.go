@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"github.com/kubespace/pipeline-plugin/pkg/conf"
+	"github.com/kubespace/pipeline-plugin/pkg/models"
+	"github.com/kubespace/pipeline-plugin/pkg/models/mysql"
 	"github.com/kubespace/pipeline-plugin/pkg/server"
 	"github.com/kubespace/pipeline-plugin/pkg/utils"
 	"k8s.io/klog"
@@ -10,9 +12,13 @@ import (
 
 var (
 	port             = flag.Int("port", 8080, "Server port to listen.")
-	dataDir          = flag.String("dataDir", "./data", "Data root dir to execute plugin")
+	dataDir          = flag.String("dataDir", "/tmp", "Data root dir to execute plugin")
 	callbackEndpoint = flag.String("callbackEndpoint", "http://localhost:80", "Plugin callback to pipeline endpoint")
 	callbackUrl      = flag.String("callbackUrl", "/api/v1/pipeline/callback", "Plugin callback to pipeline url")
+	mysqlHost        = flag.String("mysql-host", "127.0.0.1:3306", "mysql address used.")
+	mysqlUser        = flag.String("mysql-user", "root", "mysql db user.")
+	mysqlPassword    = flag.String("mysql-password", "", "mysql password used.")
+	mysqlDbName      = flag.String("mysql-dbname", "kubespace", "mysql db used.")
 )
 
 func main() {
@@ -26,6 +32,16 @@ func main() {
 	conf.AppConfig.CallbackEndpoint = *callbackEndpoint
 	conf.AppConfig.CallbackUrl = *callbackUrl
 	conf.AppConfig.CallbackClient, err = utils.NewHttpClient(*callbackEndpoint)
+	if err != nil {
+		panic(err)
+	}
+	mysqlOptions := &mysql.Options{
+		Username: *mysqlUser,
+		Password: *mysqlPassword,
+		Host:     *mysqlHost,
+		DbName:   *mysqlDbName,
+	}
+	models.Models, err = models.NewModels(mysqlOptions)
 	if err != nil {
 		panic(err)
 	}

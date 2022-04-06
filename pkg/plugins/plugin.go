@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/kubespace/pipeline-plugin/pkg/conf"
+	"github.com/kubespace/pipeline-plugin/pkg/models"
 	"github.com/kubespace/pipeline-plugin/pkg/utils"
 	"github.com/kubespace/pipeline-plugin/pkg/utils/code"
 	"io"
 	"k8s.io/klog"
 	"os"
+	"time"
 )
 
 const (
@@ -23,6 +25,7 @@ type BasePlugin struct {
 	PluginType string
 	RootDir    string
 	LogFile    string
+	CloseLog   chan struct{}
 	JobId      uint
 	Executor   PluginExecutor
 	Logger     io.Writer
@@ -31,7 +34,13 @@ type BasePlugin struct {
 func NewBasePlugin(jobId uint, pluginType string) *BasePlugin {
 	rootDir := fmt.Sprintf("%s/%d", conf.AppConfig.DataDir, jobId)
 	logFile := fmt.Sprintf(rootDir + "/.klog")
-	return &BasePlugin{RootDir: rootDir, JobId: jobId, LogFile: logFile, PluginType: pluginType}
+	return &BasePlugin{
+		RootDir:    rootDir,
+		JobId:      jobId,
+		LogFile:    logFile,
+		PluginType: pluginType,
+		CloseLog:   make(chan struct{}),
+	}
 }
 
 func (b *BasePlugin) InitRootDir(pluginType string, pluginParams interface{}) error {
@@ -77,6 +86,39 @@ func (b *BasePlugin) Log(format string, a ...interface{}) {
 	}
 }
 
+func (b *BasePlugin) FlushLogToDB() {
+	tick := time.NewTicker(5 * time.Second)
+	logStat, err := os.Stat(b.LogFile)
+	if err != nil {
+		klog.Errorf("stat log file %s error %s", b.LogFile, err.Error())
+	}
+	for {
+		klog.Infof("update log")
+		select {
+		case <-b.CloseLog:
+			klog.Info("close log update")
+			err := models.Models.JobLogManager.UpdateLog(b.JobId, b.LogFile)
+			if err != nil {
+				klog.Errorf("update job %s log error: %s", b.JobId, err.Error())
+			}
+			return
+		case <-tick.C:
+			//c.SSEvent("message", event)
+			currLogStat, err := os.Stat(b.LogFile)
+			if err != nil {
+				klog.Errorf("stat log file %s error %s", b.LogFile, err.Error())
+			} else {
+				if logStat == nil || currLogStat.ModTime() != logStat.ModTime() {
+					err := models.Models.JobLogManager.UpdateLog(b.JobId, b.LogFile)
+					if err != nil {
+						klog.Errorf("update job %s log error: %s", b.JobId, err.Error())
+					}
+				}
+			}
+		}
+	}
+}
+
 func (b *BasePlugin) Execute(pluginParams interface{}) {
 	err := b.InitRootDir(b.PluginType, pluginParams)
 	//defer b.Clear()
@@ -95,6 +137,8 @@ func (b *BasePlugin) Execute(pluginParams interface{}) {
 		return
 	}
 	b.Logger = logFile
+	go b.FlushLogToDB()
+	defer close(b.CloseLog)
 	result, err := b.Executor.execute()
 	if err != nil {
 		b.Callback(&utils.Response{Code: code.ExecError, Msg: err.Error()})

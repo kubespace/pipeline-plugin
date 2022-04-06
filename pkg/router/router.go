@@ -3,6 +3,7 @@ package router
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/kubespace/pipeline-plugin/pkg/models/mysql"
 	"github.com/kubespace/pipeline-plugin/pkg/utils"
 	"github.com/kubespace/pipeline-plugin/pkg/utils/code"
 	"github.com/kubespace/pipeline-plugin/pkg/views"
@@ -11,6 +12,7 @@ import (
 )
 
 type Config struct {
+	MysqlOptions *mysql.Options
 }
 
 type Router struct {

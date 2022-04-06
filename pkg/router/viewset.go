@@ -1,6 +1,8 @@
 package router
 
-import "github.com/kubespace/pipeline-plugin/pkg/views"
+import (
+	"github.com/kubespace/pipeline-plugin/pkg/views"
+)
 
 type ViewSets map[string][]*views.View
 
