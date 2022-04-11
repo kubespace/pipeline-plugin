@@ -6,7 +6,8 @@ import (
 )
 
 type models struct {
-	JobLogManager *manager.JobLog
+	JobLogManager          *manager.JobLog
+	PipelineReleaseManager *manager.Release
 }
 
 var Models *models
@@ -17,7 +18,9 @@ func NewModels(mysqlOptions *mysql.Options) (*models, error) {
 		return nil, err
 	}
 	jobLog := manager.NewJobLogManager(db)
+	release := manager.NewReleaseManager(db)
 	return &models{
-		JobLogManager: jobLog,
+		JobLogManager:          jobLog,
+		PipelineReleaseManager: release,
 	}, nil
 }

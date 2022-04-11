@@ -10,6 +10,7 @@ import (
 	"io"
 	"k8s.io/klog"
 	"os"
+	"runtime"
 	"time"
 )
 
@@ -120,8 +121,17 @@ func (b *BasePlugin) FlushLogToDB() {
 }
 
 func (b *BasePlugin) Execute(pluginParams interface{}) {
+	defer func() {
+		if err := recover(); err != nil {
+			klog.Error("error: ", err)
+			var buf [4096]byte
+			n := runtime.Stack(buf[:], false)
+			klog.Errorf("==> %s\n", string(buf[:n]))
+			b.Callback(&utils.Response{Code: code.UnknownError, Msg: fmt.Sprintf("%v", err)})
+		}
+	}()
 	err := b.InitRootDir(b.PluginType, pluginParams)
-	//defer b.Clear()
+	defer b.Clear()
 	if err != nil {
 		b.Callback(&utils.Response{Code: code.InitError, Msg: err.Error()})
 		return

@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -45,19 +46,27 @@ type CodeBuilderPlugin struct {
 	*BasePlugin
 	Params  *serializers.BuildCodeToImageSerializer
 	CodeDir string
+	Images  []string
 	Result  *CodeBuilderPluginResult
 }
 
 type CodeBuilderPluginResult struct {
-	ImageUrl []string `json:"images"`
+	ImageUrl        string `json:"images"`
+	ImageRegistry   string `json:"image_registry"`
+	ImageRegistryId int    `json:"image_registry_id"`
 }
 
 func NewCodeBuilderPlugin(ser *serializers.BuildCodeToImageSerializer) (*CodeBuilderPlugin, error) {
+	if ser.ImageBuildRegistry.Registry == "" {
+		ser.ImageBuildRegistry.Registry = "docker.io"
+	}
 	buildCodePlugin := &CodeBuilderPlugin{
 		BasePlugin: NewBasePlugin(ser.JobId, PluginBuildCodeToImage),
 		Params:     ser,
 		Result: &CodeBuilderPluginResult{
-			ImageUrl: []string{},
+			ImageUrl:        "",
+			ImageRegistryId: ser.ImageBuildRegistryId,
+			ImageRegistry:   ser.ImageBuildRegistry.Registry,
 		},
 	}
 	codeDir := utils.GetCodeRepoName(ser.CodeUrl)
@@ -134,7 +143,7 @@ func (b *CodeBuilderPlugin) clone() error {
 }
 
 func (b *CodeBuilderPlugin) loginDocker(user string, password string, server string) error {
-	cmd := exec.Command("docker", fmt.Sprintf("login -u %s:%s %s", user, password, server))
+	cmd := exec.Command("docker", fmt.Sprintf("login -u %s -p %s %s", user, password, server))
 	return cmd.Run()
 }
 
@@ -193,19 +202,31 @@ func (b *CodeBuilderPlugin) buildCode() error {
 }
 
 func (b *CodeBuilderPlugin) buildImages() error {
+	timeStr := fmt.Sprintf("%d", time.Now().Unix())
 	for _, buildImage := range b.Params.ImageBuilds {
 		imageName := buildImage.Image
-		imageName = b.Params.ImageBuildRegistry.Registry + "/" + imageName
+		if imageName == "" {
+			b.Log("not found build image parameter")
+			return fmt.Errorf("not found build image parameter")
+		}
+		imageName = strings.Split(imageName, ":")[0]
+		if b.Params.ImageBuildRegistry.Registry != "" {
+			imageName = b.Params.ImageBuildRegistry.Registry + "/" + imageName + ":" + timeStr
+		} else {
+			imageName = "docker.io/" + imageName + ":" + timeStr
+		}
 		if err := b.buildAndPushImage(buildImage.Dockerfile, imageName); err != nil {
 			return err
 		}
 	}
+	b.Result.ImageUrl = strings.Join(b.Images, ",")
 	return nil
 }
 
 func (b *CodeBuilderPlugin) buildAndPushImage(dockerfilePath string, imageName string) error {
 	dockerfile := b.CodeDir + "/" + dockerfilePath
-	dockerBuildCmd := fmt.Sprintf("docker build -t %s %s", imageName, dockerfile)
+	baseDockerfile := filepath.Dir(dockerfile)
+	dockerBuildCmd := fmt.Sprintf("docker build -t %s -f %s %s", imageName, dockerfile, baseDockerfile)
 	cmd := exec.Command("bash", "-xc", dockerBuildCmd)
 	cmd.Stdout = b.Logger
 	cmd.Stderr = b.Logger
@@ -217,7 +238,15 @@ func (b *CodeBuilderPlugin) buildAndPushImage(dockerfilePath string, imageName s
 	if err := b.pushImage(imageName); err != nil {
 		return err
 	}
-	b.Result.ImageUrl = append(b.Result.ImageUrl, imageName)
+	b.Images = append(b.Images, imageName)
+	cmd = exec.Command("bash", "-xc", "docker rmi "+imageName)
+	cmd.Stdout = b.Logger
+	cmd.Stderr = b.Logger
+	if err := cmd.Run(); err != nil {
+		b.Log("删除本地镜像%s错误：%v", imageName, err)
+		klog.Errorf("remove image %s error: %v", imageName, err)
+		//return fmt.Errorf("删除本地构建镜像%s错误：%v", imageName, err)
+	}
 	return nil
 }
 
