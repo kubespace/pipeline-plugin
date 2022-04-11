@@ -9,19 +9,22 @@ import (
 )
 
 type PluginViews struct {
-	Views    []*View
-	builder  *plugins.CodeBuilder
-	releaser *plugins.Releaser
+	Views     []*View
+	builder   *plugins.CodeBuilder
+	releaser  *plugins.Releaser
+	execShell *plugins.ExecShell
 }
 
 func NewPluginViews() *PluginViews {
 	pv := &PluginViews{
-		builder:  plugins.NewBuilder(),
-		releaser: plugins.NewReleaser(),
+		builder:   plugins.NewBuilder(),
+		releaser:  plugins.NewReleaser(),
+		execShell: plugins.NewExecShell(),
 	}
 	pv.Views = []*View{
 		NewView(http.MethodPost, "/build_code_to_image", pv.buildCodeToImage),
 		NewView(http.MethodPost, "/release", pv.release),
+		NewView(http.MethodPost, "/execute_shell", pv.shell),
 	}
 	return pv
 }
@@ -42,4 +45,13 @@ func (p *PluginViews) release(c *Context) *utils.Response {
 		return &utils.Response{Code: code.ParamsError, Msg: err.Error()}
 	}
 	return p.releaser.Release(&ser)
+}
+
+func (p *PluginViews) shell(c *Context) *utils.Response {
+	var ser serializers.ExecShellSerializer
+
+	if err := c.ShouldBind(&ser); err != nil {
+		return &utils.Response{Code: code.ParamsError, Msg: err.Error()}
+	}
+	return p.execShell.ExecuteShell(&ser)
 }

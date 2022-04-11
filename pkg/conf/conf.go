@@ -9,4 +9,4 @@ type GlobalConf struct {
 	CallbackClient   *utils.HttpClient
 }
 
-var AppConfig *GlobalConf = &GlobalConf{}
+var AppConfig = &GlobalConf{}

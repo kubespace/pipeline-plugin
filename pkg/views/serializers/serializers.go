@@ -20,9 +20,9 @@ type Secret struct {
 }
 
 type PipelineResource struct {
-	Type   string  `json:"type"`
-	Value  string  `json:"value"`
-	Secret *Secret `json:"secret"`
+	Type   string `json:"type"`
+	Value  string `json:"value"`
+	Secret Secret `json:"secret"`
 }
 
 type BuildCodeToImageSerializer struct {
@@ -31,7 +31,7 @@ type BuildCodeToImageSerializer struct {
 	CodeUrl         string           `json:"code_url"`
 	CodeBranch      string           `json:"code_branch"`
 	CodeCommitId    string           `json:"code_commit_id"`
-	CodeSecret      *Secret          `json:"code_secret"`
+	CodeSecret      Secret           `json:"code_secret"`
 	CodeBuild       bool             `json:"code_build"`
 	CodeBuildType   string           `json:"code_build_type"`
 	CodeBuildImage  PipelineResource `json:"code_build_image"`
@@ -57,4 +57,14 @@ type ReleaseSerializer struct {
 
 	Version string `json:"version"`
 	Images  string `json:"images"`
+}
+
+type ExecShellSerializer struct {
+	JobId uint `json:"job_id"`
+
+	Resource PipelineResource       `json:"resource"`
+	Port     string                 `json:"port"`
+	Shell    string                 `json:"shell"`
+	Script   string                 `json:"script"`
+	Env      map[string]interface{} `json:"env"`
 }

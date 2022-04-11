@@ -152,6 +152,10 @@ func (b *CodeBuilderPlugin) buildCode() error {
 		b.Log("跳过代码构建")
 		return nil
 	}
+	if b.Params.CodeBuildImage.Value == "" {
+		b.Log("构建代码镜像为空，请检查流水线配置")
+		return fmt.Errorf("build code image is empty")
+	}
 	codeBuildFile := ""
 	codeBuildType := b.Params.CodeBuildType
 	if codeBuildType == "" {
