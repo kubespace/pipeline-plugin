@@ -2,9 +2,12 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"golang.org/x/crypto/ssh"
-	"os"
+	"github.com/kubespace/pipeline-plugin/pkg/conf"
+	"github.com/kubespace/pipeline-plugin/pkg/models"
+	"github.com/kubespace/pipeline-plugin/pkg/models/mysql"
+	"github.com/kubespace/pipeline-plugin/pkg/server"
+	"github.com/kubespace/pipeline-plugin/pkg/utils"
+	"k8s.io/klog"
 )
 
 var (
@@ -18,42 +21,42 @@ var (
 	mysqlDbName      = flag.String("mysql-dbname", "kubespace", "mysql db used.")
 )
 
-//func main() {
-//	var err error
-//	klog.InitFlags(nil)
-//	flag.Parse()
-//	flag.VisitAll(func(flag *flag.Flag) {
-//		klog.Infof("FLAG: --%s=%q", flag.Name, flag.Value)
-//	})
-//	conf.AppConfig.DataDir = *dataDir
-//	conf.AppConfig.CallbackEndpoint = *callbackEndpoint
-//	conf.AppConfig.CallbackUrl = *callbackUrl
-//	conf.AppConfig.CallbackClient, err = utils.NewHttpClient(*callbackEndpoint)
-//	if err != nil {
-//		panic(err)
-//	}
-//	mysqlOptions := &mysql.Options{
-//		Username: *mysqlUser,
-//		Password: *mysqlPassword,
-//		Host:     *mysqlHost,
-//		DbName:   *mysqlDbName,
-//	}
-//	models.Models, err = models.NewModels(mysqlOptions)
-//	if err != nil {
-//		panic(err)
-//	}
-//
-//	serverConfig := &server.Config{
-//		Port: *port,
-//	}
-//	pluginServer, err := server.NewServer(serverConfig)
-//	if err != nil {
-//		panic(err)
-//	}
-//	if err = pluginServer.Run(); err != nil {
-//		panic(err)
-//	}
-//}
+func main() {
+	var err error
+	klog.InitFlags(nil)
+	flag.Parse()
+	flag.VisitAll(func(flag *flag.Flag) {
+		klog.Infof("FLAG: --%s=%q", flag.Name, flag.Value)
+	})
+	conf.AppConfig.DataDir = *dataDir
+	conf.AppConfig.CallbackEndpoint = *callbackEndpoint
+	conf.AppConfig.CallbackUrl = *callbackUrl
+	conf.AppConfig.CallbackClient, err = utils.NewHttpClient(*callbackEndpoint)
+	if err != nil {
+		panic(err)
+	}
+	mysqlOptions := &mysql.Options{
+		Username: *mysqlUser,
+		Password: *mysqlPassword,
+		Host:     *mysqlHost,
+		DbName:   *mysqlDbName,
+	}
+	models.Models, err = models.NewModels(mysqlOptions)
+	if err != nil {
+		panic(err)
+	}
+
+	serverConfig := &server.Config{
+		Port: *port,
+	}
+	pluginServer, err := server.NewServer(serverConfig)
+	if err != nil {
+		panic(err)
+	}
+	if err = pluginServer.Run(); err != nil {
+		panic(err)
+	}
+}
 
 //func main() {
 //	// Create the remote with repository URL
@@ -90,29 +93,29 @@ var (
 //	fmt.Println(codeName)
 //}
 
-func main() {
-	// 建立SSH客户端连接
-	client, err := ssh.Dial("tcp", "148.153.72.88:22", &ssh.ClientConfig{
-		User:            "root",
-		Auth:            []ssh.AuthMethod{ssh.Password("DB-china123")},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	// 建立新会话
-	session, err := client.NewSession()
-	defer session.Close()
-	if err != nil {
-		panic(err)
-	}
-	session.Stdout = os.Stdout
-
-	err = session.Run("export HOME=/tmp; bash -cx 'pwd; ls ; ls /abc; sleep 5; echo $HOME' 2>&1")
-	if err != nil {
-		fmt.Printf("Failed to run command, Err:%s\n", err.Error())
-		os.Exit(0)
-	}
-	//fmt.Println(string(result))
-}
+//func main() {
+//	// 建立SSH客户端连接
+//	client, err := ssh.Dial("tcp", "148.153.72.88:22", &ssh.ClientConfig{
+//		User:            "root",
+//		Auth:            []ssh.AuthMethod{ssh.Password("DB-china123")},
+//		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+//	})
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	// 建立新会话
+//	session, err := client.NewSession()
+//	defer session.Close()
+//	if err != nil {
+//		panic(err)
+//	}
+//	session.Stdout = os.Stdout
+//
+//	err = session.Run("export HOME=/tmp; bash -cx 'pwd; ls ; ls /abc; sleep 5; echo $HOME' 2>&1")
+//	if err != nil {
+//		fmt.Printf("Failed to run command, Err:%s\n", err.Error())
+//		os.Exit(0)
+//	}
+//	//fmt.Println(string(result))
+//}
