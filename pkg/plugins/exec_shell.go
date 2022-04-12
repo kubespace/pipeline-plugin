@@ -8,6 +8,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"k8s.io/klog"
 	"os/exec"
+	"strings"
 )
 
 const (
@@ -77,7 +78,7 @@ func (b *ExecShellPlugin) execImage() error {
 	if shell == "" {
 		shell = "bash"
 	}
-	dockerRunCmd := fmt.Sprintf("docker run --rm -i -v /pipeline:/pipeline -w /pipeline --entrypoint sh %s -c \"%s -cx '%s' 2>&1\"", image, shell, b.Params.Script)
+	dockerRunCmd := fmt.Sprintf("docker run --rm -i -v %s:/pipeline -w /pipeline --entrypoint sh %s -c \"%s -cx '%s' 2>&1\"", b.RootDir, image, shell, b.Params.Script)
 	klog.Infof("job=%d code build cmd: %s", b.JobId, dockerRunCmd)
 	cmd := exec.Command("bash", "-xc", dockerRunCmd)
 	cmd.Stdout = b.Logger
@@ -128,8 +129,14 @@ func (b *ExecShellPlugin) execSsh() error {
 	}
 	b.Log("建立session成功，开始执行脚本")
 	session.Stdout = b.Logger
+	var envs []string
+	for name, val := range b.Params.Env {
+		envs = append(envs, fmt.Sprintf("%s='%v'", name, val))
+	}
+	env := strings.Join(envs, " ")
+	klog.Info(env)
 
-	cmd := fmt.Sprintf("bash -cx '%s' 2>&1", b.Params.Script)
+	cmd := fmt.Sprintf("%s bash -cx '%s' 2>&1", env, b.Params.Script)
 	err = session.Run(cmd)
 	if err != nil {
 		b.Log("执行脚本失败: %s", err.Error())
