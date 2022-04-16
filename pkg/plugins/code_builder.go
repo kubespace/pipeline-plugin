@@ -219,7 +219,11 @@ func (b *CodeBuilderPlugin) buildImages() error {
 		} else {
 			imageName = "docker.io/" + imageName + ":" + timeStr
 		}
-		if err := b.buildAndPushImage(buildImage.Dockerfile, imageName); err != nil {
+		dockerfile := buildImage.Dockerfile
+		if dockerfile == "" {
+			dockerfile = "Dockerfile"
+		}
+		if err := b.buildAndPushImage(dockerfile, imageName); err != nil {
 			return err
 		}
 	}
