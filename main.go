@@ -8,18 +8,38 @@ import (
 	"github.com/kubespace/pipeline-plugin/pkg/server"
 	"github.com/kubespace/pipeline-plugin/pkg/utils"
 	"k8s.io/klog"
+	"os"
+	"strconv"
 )
 
 var (
-	port             = flag.Int("port", 8080, "Server port to listen.")
-	dataDir          = flag.String("dataDir", "/tmp", "Data root dir to execute plugin")
-	callbackEndpoint = flag.String("callbackEndpoint", "http://localhost:80", "Plugin callback to pipeline endpoint")
-	callbackUrl      = flag.String("callbackUrl", "/api/v1/pipeline/callback", "Plugin callback to pipeline url")
-	mysqlHost        = flag.String("mysql-host", "127.0.0.1:3306", "mysql address used.")
-	mysqlUser        = flag.String("mysql-user", "root", "mysql db user.")
-	mysqlPassword    = flag.String("mysql-password", "", "mysql password used.")
-	mysqlDbName      = flag.String("mysql-dbname", "kubespace", "mysql db used.")
+	port             = flag.Int("port", LookupEnvOrInt("PORT", 80), "Server port to listen.")
+	dataDir          = flag.String("dataDir", LookupEnvOrString("DATA_DIR", "/tmp"), "Data root dir to execute plugin")
+	callbackEndpoint = flag.String("callbackEndpoint", LookupEnvOrString("CALLBACK_ENDPOINT", "http://localhost:80"), "Plugin callback to pipeline endpoint")
+	callbackUrl      = flag.String("callbackUrl", LookupEnvOrString("CALLBACK_URL", "/api/v1/pipeline/callback"), "Plugin callback to pipeline url")
+	mysqlHost        = flag.String("mysql-host", LookupEnvOrString("MYSQL_HOST", "127.0.0.1:3306"), "mysql address used.")
+	mysqlUser        = flag.String("mysql-user", LookupEnvOrString("MYSQL_USER", "root"), "mysql db user.")
+	mysqlPassword    = flag.String("mysql-password", LookupEnvOrString("MYSQL_PASSWORD", ""), "mysql password used.")
+	mysqlDbName      = flag.String("mysql-dbname", LookupEnvOrString("MYSQL_DBNAME", "kubespace"), "mysql db used.")
 )
+
+func LookupEnvOrString(key string, defaultVal string) string {
+	if val, ok := os.LookupEnv(key); ok {
+		return val
+	}
+	return defaultVal
+}
+
+func LookupEnvOrInt(key string, defaultVal int) int {
+	if val, ok := os.LookupEnv(key); ok {
+		v, err := strconv.Atoi(val)
+		if err != nil {
+			klog.Fatalf("LookupEnvOrInt[%s]: %v", key, err)
+		}
+		return v
+	}
+	return defaultVal
+}
 
 func main() {
 	var err error
