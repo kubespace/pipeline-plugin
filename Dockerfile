@@ -1,4 +1,4 @@
-ARG BASEIMAGE=kubespace/busybox:v1.33.1
+ARG BASEIMAGE=registry.cn-hangzhou.aliyuncs.com/kubespace/pipeline-plugin-base:v1
 FROM $BASEIMAGE
 
 COPY pipeline-plugin /
