@@ -193,7 +193,7 @@ func (b *CodeBuilderPlugin) buildCode() error {
 		shExec = "bash"
 	}
 
-	dockerRunCmd := fmt.Sprintf("docker run --rm -i -v %s:/app -w /app --entrypoint sh %s -c \"%s -ex /app/%s 2>&1\"", b.CodeDir, b.Params.CodeBuildImage.Value, shExec, codeBuildFile)
+	dockerRunCmd := fmt.Sprintf("docker run --net=host --rm -i -v %s:/app -w /app --entrypoint sh %s -c \"%s -ex /app/%s 2>&1\"", b.CodeDir, b.Params.CodeBuildImage.Value, shExec, codeBuildFile)
 	klog.Infof("job=%d code build cmd: %s", b.JobId, dockerRunCmd)
 	cmd := exec.Command("bash", "-xc", dockerRunCmd)
 	cmd.Stdout = b.Logger

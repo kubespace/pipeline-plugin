@@ -78,7 +78,7 @@ func (b *ExecShellPlugin) execImage() error {
 	if shell == "" {
 		shell = "bash"
 	}
-	dockerRunCmd := fmt.Sprintf("docker run --rm -i -v %s:/pipeline -w /pipeline --entrypoint sh %s -c \"%s -cx '%s' 2>&1\"", b.RootDir, image, shell, b.Params.Script)
+	dockerRunCmd := fmt.Sprintf("docker run --net=host --rm -i -v %s:/pipeline -w /pipeline --entrypoint sh %s -c \"%s -cx '%s' 2>&1\"", b.RootDir, image, shell, b.Params.Script)
 	klog.Infof("job=%d code build cmd: %s", b.JobId, dockerRunCmd)
 	cmd := exec.Command("bash", "-xc", dockerRunCmd)
 	cmd.Stdout = b.Logger
