@@ -142,11 +142,6 @@ func (b *CodeBuilderPlugin) clone() error {
 	return nil
 }
 
-func (b *CodeBuilderPlugin) loginDocker(user string, password string, server string) error {
-	cmd := exec.Command("docker", fmt.Sprintf("login -u %s -p %s %s", user, password, server))
-	return cmd.Run()
-}
-
 func (b *CodeBuilderPlugin) buildCode() error {
 	if b.Params.CodeBuildType == CodeBuildTypeNone || !b.Params.CodeBuild {
 		b.Log("跳过代码构建")
@@ -256,6 +251,13 @@ func (b *CodeBuilderPlugin) buildAndPushImage(dockerfilePath string, imageName s
 		//return fmt.Errorf("删除本地构建镜像%s错误：%v", imageName, err)
 	}
 	return nil
+}
+
+func (b *CodeBuilderPlugin) loginDocker(user string, password string, server string) error {
+	cmd := exec.Command("docker", fmt.Sprintf("login -u %s -p %s %s", user, password, server))
+	cmd.Stdout = b.Logger
+	cmd.Stderr = b.Logger
+	return cmd.Run()
 }
 
 func (b *CodeBuilderPlugin) pushImage(imageUrl string) error {
