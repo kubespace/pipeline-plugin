@@ -1,4 +1,4 @@
-ARG BASEIMAGE=registry.cn-hangzhou.aliyuncs.com/kubespace/pipeline-plugin-base:v1
+ARG BASEIMAGE=registry.cn-hangzhou.aliyuncs.com/kubespace/pipeline-plugin-base:v2
 FROM $BASEIMAGE
 
 COPY pipeline-plugin /
