@@ -254,7 +254,7 @@ func (b *CodeBuilderPlugin) buildAndPushImage(dockerfilePath string, imageName s
 }
 
 func (b *CodeBuilderPlugin) loginDocker(user string, password string, server string) error {
-	cmd := exec.Command("bash -c", fmt.Sprintf("docker login -u %s -p %s %s", user, password, server))
+	cmd := exec.Command("bash", "-c", fmt.Sprintf("docker login -u %s -p %s %s", user, password, server))
 	cmd.Stdout = b.Logger
 	cmd.Stderr = b.Logger
 	return cmd.Run()
