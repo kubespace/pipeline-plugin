@@ -183,6 +183,7 @@ func (r *ReleaserPlugin) tagImage() error {
 }
 
 func (r *ReleaserPlugin) loginDocker(user string, password string, server string) error {
+	r.Log("docker login %s", server)
 	cmd := exec.Command("bash", "-c", fmt.Sprintf("docker login -u %s -p %s %s", user, password, server))
 	cmd.Stdout = r.Logger
 	cmd.Stderr = r.Logger
