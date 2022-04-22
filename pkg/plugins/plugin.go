@@ -75,6 +75,7 @@ func (b *BasePlugin) InitRootDir(pluginType string, pluginParams interface{}) er
 }
 
 func (b *BasePlugin) Clear() {
+	time.Sleep(3 * time.Second)
 	if err := os.RemoveAll(b.RootDir); err != nil {
 		klog.Errorf("job=%d remove root dir %s error: %v", b.JobId, b.RootDir, err)
 	}
@@ -141,11 +142,11 @@ func (b *BasePlugin) Execute(pluginParams interface{}) {
 		return
 	}
 	logFile, err := os.OpenFile(b.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	defer logFile.Close()
 	if err != nil {
 		b.Callback(&utils.Response{Code: code.InitError, Msg: "open log file error: " + err.Error()})
 		return
 	}
+	defer logFile.Close()
 	b.Logger = logFile
 	go b.FlushLogToDB()
 	defer close(b.CloseLog)
