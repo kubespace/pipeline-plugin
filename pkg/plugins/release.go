@@ -6,6 +6,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	sshgit "github.com/go-git/go-git/v5/plumbing/transport/ssh"
@@ -143,6 +144,11 @@ func (r *ReleaserPlugin) clone() error {
 	r.Log("git tag %s", r.Params.Version)
 	_, err = repo.CreateTag(r.Params.Version, plumbing.NewHash(r.Params.CodeCommitId), &git.CreateTagOptions{
 		Message: r.Params.Version,
+		Tagger: &object.Signature{
+			Name:  "kubespace",
+			Email: "kubespace@kubespace.cn",
+			When:  time.Now(),
+		},
 	})
 	if err != nil {
 		r.Log("git tag error: %s", err.Error())
