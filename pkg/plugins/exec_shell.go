@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/kubespace/pipeline-plugin/pkg/utils"
 	"github.com/kubespace/pipeline-plugin/pkg/utils/code"
@@ -78,9 +79,13 @@ func (b *ExecShellPlugin) execImage() error {
 	if shell == "" {
 		shell = "bash"
 	}
-	dockerRunCmd := fmt.Sprintf("docker run --net=host --rm -i -v %s:/pipeline -w /pipeline --entrypoint sh %s -c \"%s -cx '%s' 2>&1\"", b.RootDir, image, shell, b.Params.Script)
+	var envs []string
+	for name, val := range b.Params.Env {
+		envs = append(envs, fmt.Sprintf("%s='%v'", name, val))
+	}
+	dockerRunCmd := fmt.Sprintf("docker run --net=host --rm -i -v %s:/pipeline -w /pipeline --entrypoint sh %s -c \"%s %s -cx '%s' 2>&1\"", b.RootDir, image, envs, shell, b.Params.Script)
 	klog.Infof("job=%d code build cmd: %s", b.JobId, dockerRunCmd)
-	cmd := exec.Command("bash", "-xc", dockerRunCmd)
+	cmd := exec.Command("bash", "-c", dockerRunCmd)
 	cmd.Stdout = b.Logger
 	cmd.Stderr = b.Logger
 	if err := cmd.Run(); err != nil {
@@ -122,25 +127,45 @@ func (b *ExecShellPlugin) execSsh() error {
 
 	// 建立新会话
 	session, err := client.NewSession()
-	defer session.Close()
 	if err != nil {
 		b.Log("ssh host %s new session error: %s", host, err.Error())
 		return err
 	}
+	defer session.Close()
 	b.Log("建立session成功，开始执行脚本")
 	session.Stdout = b.Logger
 	var envs []string
 	for name, val := range b.Params.Env {
 		envs = append(envs, fmt.Sprintf("%s='%v'", name, val))
 	}
+	workDir := fmt.Sprintf("/tmp/kubespace/pipeline/%d", b.JobId)
+	envs = append(envs, fmt.Sprintf("WORKDIR='%s'", workDir))
 	env := strings.Join(envs, " ")
-	klog.Info(env)
 
-	cmd := fmt.Sprintf("%s bash -cx '%s' 2>&1", env, b.Params.Script)
+	output := fmt.Sprintf("%s/output", workDir)
+	cmd := fmt.Sprintf("mkdir -p %s && cd %s && rm -rf %s && %s bash -cx '%s' 2>&1", workDir, workDir, output, env, b.Params.Script)
 	err = session.Run(cmd)
 	if err != nil {
 		b.Log("执行脚本失败: %s", err.Error())
 		return err
+	}
+	newSession, err := client.NewSession()
+	if err != nil {
+		b.Log("ssh host %s new session error: %s", host, err.Error())
+		return err
+	}
+	defer newSession.Close()
+	buffer := new(bytes.Buffer)
+	newSession.Stdout = buffer
+	cmd = fmt.Sprintf("bash -c '[[ -f %s ]] && cat %s; rm -rf %s'", output, output, workDir)
+	err = newSession.Run(cmd)
+	if err != nil {
+		b.Log("获取脚本输出%s失败: %s", output, err.Error())
+		return err
+	} else {
+		outEnvStr := buffer.String()
+		b.Log("output:\n%s", outEnvStr)
+
 	}
 	return nil
 }
