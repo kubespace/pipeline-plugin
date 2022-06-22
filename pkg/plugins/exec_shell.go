@@ -8,6 +8,7 @@ import (
 	"github.com/kubespace/pipeline-plugin/pkg/views/serializers"
 	"golang.org/x/crypto/ssh"
 	"k8s.io/klog"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -37,20 +38,14 @@ func (b *ExecShell) ExecuteShell(ser *serializers.ExecShellSerializer) *utils.Re
 type ExecShellPlugin struct {
 	*BasePlugin
 	Params *serializers.ExecShellSerializer
-	Result *ExecShellPluginResult
-}
-
-type ExecShellPluginResult struct {
-	Env map[string]interface{} `json:"env"`
+	Result map[string]interface{} `json:"env"`
 }
 
 func NewExecShellPlugin(ser *serializers.ExecShellSerializer) (*ExecShellPlugin, error) {
 	execPlugin := &ExecShellPlugin{
 		BasePlugin: NewBasePlugin(ser.JobId, PluginBuildCodeToImage),
 		Params:     ser,
-		Result: &ExecShellPluginResult{
-			Env: make(map[string]interface{}),
-		},
+		Result:     make(map[string]interface{}),
 	}
 	execPlugin.Executor = execPlugin
 
@@ -70,7 +65,7 @@ func (b *ExecShellPlugin) execute() (interface{}, error) {
 			return nil, err
 		}
 	}
-	return nil, nil
+	return b.Result, nil
 }
 
 func (b *ExecShellPlugin) execImage() error {
@@ -79,11 +74,26 @@ func (b *ExecShellPlugin) execImage() error {
 	if shell == "" {
 		shell = "bash"
 	}
+	scriptFile := b.RootDir + "/.script.sh"
+	f, err := os.Create(scriptFile)
+	if err != nil {
+		b.Log("create script file error: %s", err.Error())
+		return err
+	}
+	defer f.Close()
+	if _, err = f.Write([]byte(b.Params.Script)); err != nil {
+		b.Log("写入脚本错误：%v", err)
+		klog.Errorf("job=%d write build error: %v", b.JobId, err)
+		return err
+	}
+	scriptFileName := ".script.sh"
 	var envs []string
 	for name, val := range b.Params.Env {
 		envs = append(envs, fmt.Sprintf("%s='%v'", name, val))
 	}
-	dockerRunCmd := fmt.Sprintf("docker run --net=host --rm -i -v %s:/pipeline -w /pipeline --entrypoint sh %s -c \"%s %s -cx '%s' 2>&1\"", b.RootDir, image, envs, shell, b.Params.Script)
+	envs = append(envs, fmt.Sprintf("WORKDIR='/pipeline'"))
+	env := strings.Join(envs, " ")
+	dockerRunCmd := fmt.Sprintf("docker run --net=host --rm -i -v %s:/pipeline -w /pipeline --entrypoint sh %s -c \"%s %s -x %s 2>&1\"", b.RootDir, image, env, shell, scriptFileName)
 	klog.Infof("job=%d code build cmd: %s", b.JobId, dockerRunCmd)
 	cmd := exec.Command("bash", "-c", dockerRunCmd)
 	cmd.Stdout = b.Logger
@@ -91,6 +101,27 @@ func (b *ExecShellPlugin) execImage() error {
 	if err := cmd.Run(); err != nil {
 		klog.Errorf("job=%d build error: %v", b.JobId, err)
 		return fmt.Errorf("build code error: %v", err)
+	} else {
+		outputBytes, err := os.ReadFile(b.RootDir + "/output")
+		if err != nil {
+			if !os.IsNotExist(err) {
+				b.Log("read output error: %s", err.Error())
+				return err
+			}
+		} else {
+			outEnvStr := string(outputBytes)
+			b.Log("output:\n%s", outEnvStr)
+			if outEnvStr != "" {
+				for _, line := range strings.Split(outEnvStr, "\n") {
+					if strings.Contains(line, "=") {
+						splits := strings.SplitN(line, "=", 2)
+						key := splits[0]
+						value := splits[1]
+						b.Result[key] = value
+					}
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -165,7 +196,16 @@ func (b *ExecShellPlugin) execSsh() error {
 	} else {
 		outEnvStr := buffer.String()
 		b.Log("output:\n%s", outEnvStr)
-
+		if outEnvStr != "" {
+			for _, line := range strings.Split(outEnvStr, "\n") {
+				if strings.Contains(line, "=") {
+					splits := strings.SplitN(line, "=", 2)
+					key := splits[0]
+					value := splits[1]
+					b.Result[key] = value
+				}
+			}
+		}
 	}
 	return nil
 }
