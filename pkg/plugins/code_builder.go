@@ -228,8 +228,8 @@ func (b *CodeBuilderPlugin) buildImages() error {
 
 func (b *CodeBuilderPlugin) buildAndPushImage(dockerfilePath string, imageName string) error {
 	dockerfile := b.CodeDir + "/" + dockerfilePath
-	baseDockerfile := filepath.Dir(dockerfile)
-	dockerBuildCmd := fmt.Sprintf("docker build -t %s -f %s %s", imageName, dockerfile, baseDockerfile)
+	//baseDockerfile := filepath.Dir(dockerfile)
+	dockerBuildCmd := fmt.Sprintf("docker build -t %s -f %s %s", imageName, dockerfile, b.CodeDir)
 	cmd := exec.Command("bash", "-xc", dockerBuildCmd)
 	cmd.Stdout = b.Logger
 	cmd.Stderr = b.Logger
